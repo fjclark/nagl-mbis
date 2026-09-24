@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "versioneer"]
+requires = ["setuptools>=61.0", "wheel", "versioneer[toml]"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,12 +19,83 @@ classifiers = ["Programming Language :: Python :: 3"]
 zip-safe = false
 include-package-data = true
 
-[tool.setuptools.dynamic]
-version = {attr = "naglmbis.__version__"}
-
 [tool.setuptools.packages.find]
 namespaces = true
 where = ["."]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+# The default feature holds the minimal set of dependencies needed to load the
+# pre-trained models and run inference, which uses openff-nagl rather than dgl.
+[tool.pixi.dependencies]
+python = ">=3.10"
+openff-nagl-base = "*"
+pytorch = "*"
+rdkit = "*"
+
+[tool.pixi.pypi-dependencies]
+naglmbis = { path = ".", editable = true }
+
+# The nagl fork and dgl, used for training the models.
+[tool.pixi.feature.nagl.dependencies]
+dgl = ">=1"
+pydantic = "*"
+pyarrow = "*"
+polars = "*"
+rich = "*"
+pyyaml = "*"
+networkx = "*"
+typing_extensions = "*"
+
+[tool.pixi.feature.nagl.pypi-dependencies]
+nagl = { git = "https://github.com/bismuthadams1/nagl.git", rev = "df6e26123130ab6f02a390e392f9669ca0b2aed0" }
+
+[tool.pixi.feature.test.dependencies]
+pytest = "*"
+pytest-cov = "*"
+
+[tool.pixi.feature.test.tasks]
+test = "pytest -v naglmbis/tests"
+
+# Additional dependencies used for training and data generation
+[tool.pixi.feature.dev.dependencies]
+openff-toolkit-base = "*"
+openff-units = ">=0.2"
+openff-utilities = "*"
+qcengine = ">=0.18.0"
+numpy = "<=1.24.9"
+torchdata = "<=0.10.0"
+jinja2 = "*"
+chemper = "*"
+pandas = "*"
+click = "*"
+click-option-group = "*"
+
+[tool.pixi.feature.dev.pypi-dependencies]
+espaloma_charge = "*"
+
+# Environment used by the dataset splitting scripts in scripts/dataset
+[tool.pixi.feature.splitting]
+platforms = ["linux-64"]  # deepchem is not available for osx-arm64
+
+[tool.pixi.feature.splitting.dependencies]
+python = "3.9.*"  # conda-forge deepchem requires python <3.10
+deepchem = "*"
+qcportal = "*"
+numpy = "*"
+h5py = "*"
+rdkit = "*"
+openff-recharge = "*"
+openff-toolkit = "*"
+pyarrow = "*"
+
+[tool.pixi.environments]
+default = { features = ["nagl", "dev", "test"], solve-group = "default" }
+inference = { features = [], solve-group = "inference" }
+test-inference = { features = ["test"], solve-group = "inference" }
+splitting = { features = ["splitting"], no-default-feature = true }
 
 [tool.versioneer]
 # Automatic version numbering scheme
