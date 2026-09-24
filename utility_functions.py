@@ -1,4 +1,4 @@
-from naglmbis.models.base_model import MBISGraphModel
+from naglmbis.models.base_model import MBISChargeModel
 import torch
 from openff.toolkit.topology import Molecule
 import rdkit
@@ -6,14 +6,14 @@ from rdkit import Chem
 # from pyCheckmol import CheckMol
 
 def get_latent_embedding(smiles: str,
-                         charge_model: MBISGraphModel) -> tuple[torch.Tensor,rdkit.Chem]:
+                         charge_model: MBISChargeModel) -> tuple[torch.Tensor,rdkit.Chem]:
     """Returns the latent embeddings given a smiles string.
 
     Parameters
     ----------
     smiles: str
         Smiles string in which to grab the unique latent embedding vector
-    charge_model: MBISGraphModel
+    charge_model: MBISChargeModel
         charge model to get the atom features for the latent embeddings
     
     Returns
@@ -25,13 +25,11 @@ def get_latent_embedding(smiles: str,
     """
     openff_mol  = Molecule.from_smiles(smiles, allow_undefined_stereo=True)
     rdkit_mol = openff_mol.to_rdkit()
-    dgl_mol_2 = charge_model.return_dgl_molecule(rdkit_mol)
-    charge_model.forward(dgl_mol_2)
     #this gives us our latent vector
-    return dgl_mol_2.graph.ndata['h'], rdkit_mol
+    return charge_model.compute_latent_embeddings(rdkit_mol), rdkit_mol
 
 def total_latent_embeddings(smiles_list: list[str],
-                            charge_model: MBISGraphModel, 
+                            charge_model: MBISChargeModel, 
                             tolerence: int = 50) -> tuple[list[torch.tensor, dict[str,torch.tensor]], dict[int,str],Chem.Mol,torch.Tensor]:
     """Use this on a group of SMILES to get the total latent embeddings.
     
@@ -39,7 +37,7 @@ def total_latent_embeddings(smiles_list: list[str],
     ----------
     smiles_list: list[str]
         list of molecules to obtain a total latent embedding tensor
-    charge_model: MBISGraphModel
+    charge_model: MBISChargeModel
         charge model to get the atom features for the latent embeddings
     tolerance: int
         tolerance in which to apply to the grouping procedure of the atoms

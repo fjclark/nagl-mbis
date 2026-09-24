@@ -16,8 +16,37 @@ class MBISChargeModel:
     def __init__(self, gnn_model: GNNModel):
         # always use openff-nagl's pure PyTorch layers, even if dgl is installed
         if gnn_model._is_dgl:
+            # the converted model is built fresh in training mode, so keep the
+            # train/eval state of the model we were given
+            training = gnn_model.training
             gnn_model = gnn_model._as_nagl()
+            gnn_model.train(training)
         self.gnn_model = gnn_model
+
+    def _fragment_graphs(self, molecule: Chem.Mol):
+        """
+        Yield the atom indices and graph of each fragment of the molecule.
+
+        We split the molecule into fragments ourselves rather than relying on
+        GNNModel.compute_properties, which can assign the charges of a fragment to
+        the wrong atoms when the fragment's atom indices are not contiguous.
+        """
+        from openff.nagl.molecule._graph.molecule import GraphMolecule
+        from openff.toolkit import Molecule
+
+        fragment_indices = Chem.GetMolFrags(molecule)
+        fragments = Chem.GetMolFrags(molecule, asMols=True)
+
+        for indices, fragment in zip(fragment_indices, fragments, strict=True):
+            off_fragment = Molecule.from_rdkit(
+                fragment, allow_undefined_stereo=True, hydrogens_are_explicit=True
+            )
+            graph = GraphMolecule.from_openff(
+                off_fragment,
+                atom_features=self.gnn_model.config.atom_features,
+                bond_features=self.gnn_model.config.bond_features,
+            )
+            yield list(indices), graph
 
     def compute_properties(self, molecule: Chem.Mol) -> dict[str, torch.Tensor]:
         """
@@ -37,33 +66,44 @@ class MBISChargeModel:
         dict[str, torch.Tensor]
             The predicted properties, e.g. ``"mbis-charges"`` with shape (n_atoms, 1).
         """
-        from openff.nagl.molecule._graph.molecule import GraphMolecule
-        from openff.toolkit import Molecule
-
-        # Split the molecule into fragments ourselves rather than relying on
-        # GNNModel.compute_properties, which can assign the charges of a fragment to
-        # the wrong atoms when the fragment's atom indices are not contiguous.
-        fragment_indices = Chem.GetMolFrags(molecule)
-        fragments = Chem.GetMolFrags(molecule, asMols=True)
-
         properties = {}
-        for indices, fragment in zip(fragment_indices, fragments, strict=True):
-            off_fragment = Molecule.from_rdkit(
-                fragment, allow_undefined_stereo=True, hydrogens_are_explicit=True
-            )
-            graph = GraphMolecule.from_openff(
-                off_fragment,
-                atom_features=self.gnn_model.config.atom_features,
-                bond_features=self.gnn_model.config.bond_features,
-            )
+        for indices, graph in self._fragment_graphs(molecule):
             for name, values in self.gnn_model.forward(graph).items():
                 if name not in properties:
                     properties[name] = torch.empty(
                         (molecule.GetNumAtoms(), values.shape[1]), dtype=values.dtype
                     )
-                properties[name][list(indices)] = values.detach()
+                properties[name][indices] = values.detach()
 
         return properties
+
+    def compute_latent_embeddings(self, molecule: Chem.Mol) -> torch.Tensor:
+        """
+        Compute the latent atom embeddings, i.e. the output of the convolution
+        layers which is fed to the readout layers.
+
+        Parameters
+        ----------
+        molecule: Chem.Mol
+            The RDKit molecule, treated as in ``compute_properties``.
+
+        Returns
+        -------
+        torch.Tensor
+            The atom embeddings with shape (n_atoms, hidden_feature_size).
+        """
+        embeddings = None
+        for indices, graph in self._fragment_graphs(molecule):
+            # the convolution module stores its output on the graph
+            self.gnn_model.convolution_module(graph)
+            values = graph.graph.ndata[graph._graph_feature_name]
+            if embeddings is None:
+                embeddings = torch.empty(
+                    (molecule.GetNumAtoms(), values.shape[1]), dtype=values.dtype
+                )
+            embeddings[indices] = values.detach()
+
+        return embeddings
 
 
 def __getattr__(name):

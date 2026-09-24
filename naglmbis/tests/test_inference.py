@@ -74,3 +74,29 @@ def test_fragments_predicted_separately():
         expected = model.compute_properties(molecule=fragment)["mbis-charges"]
         assert torch.allclose(charges[list(indices)], expected)
         assert charges[list(indices)].sum().item() == pytest.approx(total, abs=1e-5)
+
+
+def test_model_in_eval_mode():
+    """Make sure the loaded model stays in eval mode, even after converting a dgl
+    model to openff-nagl's pure PyTorch layers, so dropout is not applied."""
+    model = load_charge_model(charge_model="nagl-v1-mbis")
+    assert not any(module.training for module in model.gnn_model.modules())
+
+
+def test_latent_embeddings(methanol_rdkit):
+    """Make sure the latent embeddings have one row per atom and each fragment of a
+    mixture gets the same embeddings as on its own."""
+    from rdkit import Chem
+
+    model = load_charge_model(charge_model="nagl-v1-mbis")
+    hidden_size = model.gnn_model.config.convolution.layers[-1].hidden_feature_size
+    embeddings = model.compute_latent_embeddings(molecule=methanol_rdkit)
+    assert embeddings.shape == (6, hidden_size)
+    assert torch.isfinite(embeddings).all()
+
+    mixture = Chem.AddHs(Chem.MolFromSmiles("CC(=O)[O-].O"))
+    embeddings = model.compute_latent_embeddings(molecule=mixture)
+    for indices, smiles in zip(Chem.GetMolFrags(mixture), ["CC(=O)[O-]", "O"]):
+        fragment = Chem.AddHs(Chem.MolFromSmiles(smiles))
+        expected = model.compute_latent_embeddings(molecule=fragment)
+        assert torch.allclose(embeddings[list(indices)], expected)
