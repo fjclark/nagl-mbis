@@ -1,0 +1,24 @@
+nag-gas-charge.ckpt: failed for [Cl-]: 0 is not in list
+nagl-gas-charge-dipole-esp.ckpt: failed for [Cl-]: 0 is not in list
+nagl-gas-charge-dipole.ckpt: failed for [Cl-]: 0 is not in list
+nagl-gas-charge.ckpt: failed for [Cl-]: 0 is not in list
+nagl-gas-esp-15A.ckpt: failed for [Cl-]: 0 is not in list
+nagl-gas-esp-15A.ckpt: failed for Ic1ccccc1: 'I' is not in list
+nagl-gas-esp-2A.ckpt: failed for [Cl-]: 0 is not in list
+nagl-gas-esp-2A.ckpt: failed for Ic1ccccc1: 'I' is not in list
+nagl-gas-esp-default.ckpt: failed for [Cl-]: 0 is not in list
+nagl-v1-mbis-dipole.ckpt: failed for [Cl-]: 0 is not in list
+nagl-v1-mbis-dipole.ckpt: failed for Ic1ccccc1: 'I' is not in list
+nagl-v1-mbis-dipole.ckpt: failed for B(OC)(OC)OC: 'B' is not in list
+nagl-v1-mbis-dipole.ckpt: failed for OB(O)c1ccccc1: 'B' is not in list
+nagl-v1-mbis-dipole.ckpt: failed for C[Si](C)(C)C: 'Si' is not in list
+nagl-v1-mbis.ckpt: failed for [Cl-]: 0 is not in list
+nagl-v1-mbis.ckpt: failed for Ic1ccccc1: 'I' is not in list
+nagl-v1-mbis.ckpt: failed for B(OC)(OC)OC: 'B' is not in list
+nagl-v1-mbis.ckpt: failed for OB(O)c1ccccc1: 'B' is not in list
+nagl-v1-mbis.ckpt: failed for C[Si](C)(C)C: 'Si' is not in list
+nagl-water-charge-dipole-esp.ckpt: failed for [Cl-]: 0 is not in list
+nagl-water-charge-dipole.ckpt: failed for [Cl-]: 0 is not in list
+nagl-water-charge.ckpt: failed for [Cl-]: 0 is not in list
+naglmbis commit 07691195221f02ad60aff9aa67c271fba3d25e66; nagl 0+untagged.145.gdf6e261; dgl 2.3.0; torch 2.3.1.post100
+wrote 638 reference charge sets, 22 failures

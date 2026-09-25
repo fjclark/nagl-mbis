@@ -8,6 +8,8 @@ except ImportError:
     from pydantic import Extra, Field, dataclasses
 from rdkit import Chem
 
+from naglmbis.utils import DEFAULT_RING_SIZES
+
 
 @dataclasses.dataclass(config={"extra": Extra.forbid})
 class HydrogenAtoms(AtomFeature):
@@ -38,7 +40,7 @@ class HydrogenAtoms(AtomFeature):
 class AtomInRingOfSize(AtomFeature):
     type: Literal["ringofsize"] = "ringofsize"
     ring_sizes: list[int] = Field(
-        [3, 4, 5, 6, 7, 8],
+        DEFAULT_RING_SIZES,
         description="The ring of size we want to check membership of.",
     )
 

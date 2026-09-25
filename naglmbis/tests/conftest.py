@@ -1,5 +1,6 @@
 import pytest
-from openff.toolkit.topology import Molecule
+from openff.toolkit import Molecule
+from rdkit import Chem
 
 
 @pytest.fixture()
@@ -10,6 +11,24 @@ def methanol():
     methanol = Molecule.from_mapped_smiles("[H:3][C:1]([H:4])([H:5])[O:2][H:6]")
     methanol.generate_conformers(n_conformers=1)
     return methanol.to_rdkit()
+
+
+@pytest.fixture()
+def methanol_rdkit():
+    """
+    Make methanol with RDKit only, with the same atom ordering as ``methanol``.
+    """
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    methanol = Chem.MolFromSmiles("[H:3][C:1]([H:4])([H:5])[O:2][H:6]", params)
+    # order the atoms by their map index, then remove the map indices
+    map_indices = [atom.GetAtomMapNum() for atom in methanol.GetAtoms()]
+    methanol = Chem.RenumberAtoms(
+        methanol, sorted(range(len(map_indices)), key=map_indices.__getitem__)
+    )
+    for atom in methanol.GetAtoms():
+        atom.SetAtomMapNum(0)
+    return methanol
 
 
 @pytest.fixture()

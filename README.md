@@ -6,23 +6,45 @@ package by SimonBoothroyd.
 
 ## Installation
 
-The required dependencies to run these models can be installed using ``mamba`` and the provided environment file:
-
-```bash
-mamba env create -f devtools/conda-envs/env.yaml
-```
-
-You will then need to install this package from source, first clone the repository from github:
+Environments are managed with [pixi](https://pixi.sh). First clone the repository from github:
 
 ```bash
 git clone https://github.com/bismuthadams1/nagl-mbis.git
 cd nagl-mbis
 ```
 
-With the nagl environment activated install the models via:
+Then install one of the provided environments (this package is installed in editable mode automatically):
+
+| Environment      | Contents                                                                    |
+|------------------|-----------------------------------------------------------------------------|
+| `inference`      | Minimal dependencies needed to load the models and predict charges (conda-forge only: `openff-nagl-base`, `pytorch`, `rdkit`; no dgl) |
+| `test-inference` | `inference` plus `pytest`                                                   |
+| `default`        | Full development environment, including the [nagl fork](https://github.com/bismuthadams1/nagl) and dgl used for training |
+| `splitting`      | Dependencies for the dataset splitting scripts in `scripts/dataset` (linux-64 only) |
 
 ```bash
-pip install -e . --no-build-isolation 
+# minimal environment for computing charges
+pixi install -e inference
+pixi run -e inference python my_script.py
+
+# full development environment
+pixi install
+pixi shell
+```
+
+The models were trained with a [fork of NAGL](https://github.com/bismuthadams1/nagl) which requires dgl, but are
+evaluated with the pure PyTorch implementation in [openff-nagl](https://github.com/openforcefield/openff-nagl). The
+tests check that the charges match those of the original implementation. Note that:
+
+- if a molecule contains several fragments (e.g. a salt), each fragment is predicted separately, so the charges of
+  each fragment sum to its own formal charge;
+- as molecules are parsed with the OpenFF toolkit, radicals are not supported.
+
+To run the tests:
+
+```bash
+pixi run test                        # full test suite in the default environment
+pixi run -e test-inference test      # tests which only need the inference dependencies
 ```
 
 ## Quick start

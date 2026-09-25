@@ -1,6 +1,10 @@
 import numpy as np
+import pytest
 
-from naglmbis.features import (
+# these features are registered with the bismuthadams1/nagl fork, which is only installed for training
+pytest.importorskip("nagl")
+
+from naglmbis.features import (  # noqa: E402
     AtomicMass,
     AtomicPolarisability,
     ExplicitValence,
