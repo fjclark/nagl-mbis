@@ -16,16 +16,14 @@ class MBISChargeModel:
     def __init__(self, gnn_model: GNNModel):
         # always use openff-nagl's pure PyTorch layers, even if dgl is installed
         if gnn_model._is_dgl:
-            # the converted model is built fresh in training mode, so keep the
-            # train/eval state of the model we were given
-            training = gnn_model.training
-            gnn_model = gnn_model._as_nagl()
-            gnn_model.train(training)
+            # the converted model is built fresh in training mode
+            gnn_model = gnn_model._as_nagl().eval()
         self.gnn_model = gnn_model
 
-    def _fragment_graphs(self, molecule: Chem.Mol):
+    def _per_fragment(self, molecule: Chem.Mol, fn) -> dict[str, torch.Tensor]:
         """
-        Yield the atom indices and graph of each fragment of the molecule.
+        Apply ``fn`` to the graph of each fragment and gather the per-atom tensors
+        it returns into tensors covering the whole molecule.
 
         We split the molecule into fragments ourselves rather than relying on
         GNNModel.compute_properties, which can assign the charges of a fragment to
@@ -34,19 +32,26 @@ class MBISChargeModel:
         from openff.nagl.molecule._graph.molecule import GraphMolecule
         from openff.toolkit import Molecule
 
-        fragment_indices = Chem.GetMolFrags(molecule)
-        fragments = Chem.GetMolFrags(molecule, asMols=True)
-
+        results = {}
+        fragment_indices = []
+        fragments = Chem.GetMolFrags(
+            molecule, asMols=True, fragsMolAtomMapping=fragment_indices
+        )
         for indices, fragment in zip(fragment_indices, fragments, strict=True):
-            off_fragment = Molecule.from_rdkit(
-                fragment, allow_undefined_stereo=True, hydrogens_are_explicit=True
-            )
             graph = GraphMolecule.from_openff(
-                off_fragment,
+                Molecule.from_rdkit(
+                    fragment, allow_undefined_stereo=True, hydrogens_are_explicit=True
+                ),
                 atom_features=self.gnn_model.config.atom_features,
                 bond_features=self.gnn_model.config.bond_features,
             )
-            yield list(indices), graph
+            for name, values in fn(graph).items():
+                if name not in results:
+                    results[name] = torch.empty(
+                        (molecule.GetNumAtoms(), values.shape[1]), dtype=values.dtype
+                    )
+                results[name][list(indices)] = values.detach()
+        return results
 
     def compute_properties(self, molecule: Chem.Mol) -> dict[str, torch.Tensor]:
         """
@@ -66,16 +71,7 @@ class MBISChargeModel:
         dict[str, torch.Tensor]
             The predicted properties, e.g. ``"mbis-charges"`` with shape (n_atoms, 1).
         """
-        properties = {}
-        for indices, graph in self._fragment_graphs(molecule):
-            for name, values in self.gnn_model.forward(graph).items():
-                if name not in properties:
-                    properties[name] = torch.empty(
-                        (molecule.GetNumAtoms(), values.shape[1]), dtype=values.dtype
-                    )
-                properties[name][indices] = values.detach()
-
-        return properties
+        return self._per_fragment(molecule, self.gnn_model.forward)
 
     def compute_latent_embeddings(self, molecule: Chem.Mol) -> torch.Tensor:
         """
@@ -92,27 +88,13 @@ class MBISChargeModel:
         torch.Tensor
             The atom embeddings with shape (n_atoms, hidden_feature_size).
         """
-        embeddings = None
-        for indices, graph in self._fragment_graphs(molecule):
+
+        def embed(graph):
             # the convolution module stores its output on the graph
             self.gnn_model.convolution_module(graph)
-            values = graph.graph.ndata[graph._graph_feature_name]
-            if embeddings is None:
-                embeddings = torch.empty(
-                    (molecule.GetNumAtoms(), values.shape[1]), dtype=values.dtype
-                )
-            embeddings[indices] = values.detach()
+            return {"h": graph.graph.ndata[graph._graph_feature_name]}
 
-        return embeddings
-
-
-def __getattr__(name):
-    # the nagl based model needs dgl, so only import it when requested
-    if name == "MBISGraphModel":
-        from naglmbis.models._nagl_model import MBISGraphModel
-
-        return MBISGraphModel
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+        return self._per_fragment(molecule, embed)["h"]
 
 
 class ComputePartialPolarised:

@@ -36,7 +36,7 @@ CHARGE_MODELS = Literal["nagl-v1-mbis-dipole",
 def _convert_layers(hidden_feats, activation, dropout, **extra) -> list[dict]:
     """Convert nagl fork layer settings to openff-nagl layer configs."""
     dropout = [0.0] * len(hidden_feats) if dropout is None else dropout
-    layers = [
+    return [
         {
             "hidden_feature_size": size,
             "activation_function": act,
@@ -45,17 +45,15 @@ def _convert_layers(hidden_feats, activation, dropout, **extra) -> list[dict]:
         }
         for size, act, drop in zip(hidden_feats, activation, dropout, strict=True)
     ]
-    return layers
 
 
 def _convert_atom_feature(feature: dict) -> list[dict]:
     """Convert a nagl fork atom feature config to the equivalent openff-nagl features."""
     feature = dict(feature)
     feature_type = feature.pop("type")
-    if feature_type == "element" and set(feature) <= {"values"}:
-        return [{"name": "atomic_element", "categories": feature["values"]}]
-    if feature_type == "connectivity" and set(feature) <= {"values"}:
-        return [{"name": "atom_connectivity", "categories": feature["values"]}]
+    one_hot_names = {"element": "atomic_element", "connectivity": "atom_connectivity"}
+    if feature_type in one_hot_names and set(feature) <= {"values"}:
+        return [{"name": one_hot_names[feature_type], "categories": feature["values"]}]
     if feature_type == "ringofsize" and set(feature) <= {"ring_sizes"}:
         # naglmbis.features.AtomInRingOfSize, one column per ring size
         ring_sizes = feature.get("ring_sizes", [3, 4, 5, 6, 7, 8])
@@ -80,19 +78,11 @@ def _convert_config(config: dict) -> dict:
     for name, readout in model["readouts"].items():
         if readout["pooling"] != "atom" or readout["postprocess"] != "charges":
             raise NotImplementedError(f"Unsupported readout: {readout}")
-        layers = _convert_layers(**readout["forward"])
         # openff-nagl appends the final (electronegativity, hardness) output layer
-        # itself, so check ours matches it and leave it out of the config
-        output_layer = layers.pop()
-        if output_layer != {
-            "hidden_feature_size": 2,
-            "activation_function": "Identity",
-            "dropout": 0.0,
-        }:
-            raise NotImplementedError(f"Unsupported output layer: {output_layer}")
+        # itself, so leave it out of the config
         readouts[name] = {
             "pooling": "atoms",
-            "layers": layers,
+            "layers": _convert_layers(**readout["forward"])[:-1],
             "postprocess": "compute_partial_charges",
         }
 
@@ -119,14 +109,14 @@ def _convert_config(config: dict) -> dict:
 
 def _convert_state_dict(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     """Rename the nagl fork weights to the equivalent openff-nagl weights."""
-    converted = {}
-    for key, value in state_dict.items():
+
+    def rename(key: str) -> str:
         key = re.sub(r"^convolution_module\.", "convolution_module.gcn_layers.", key)
-        key = re.sub(
+        return re.sub(
             r"^(readout_modules\.[^.]+)\.forward_layers\.", r"\1.readout_layers.", key
         )
-        converted[key] = value
-    return converted
+
+    return {rename(key): value for key, value in state_dict.items()}
 
 
 def load_checkpoint(checkpoint_path: str) -> MBISChargeModel:

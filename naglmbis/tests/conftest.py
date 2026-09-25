@@ -1,4 +1,5 @@
 import pytest
+from openff.toolkit import Molecule
 from rdkit import Chem
 
 
@@ -7,7 +8,6 @@ def methanol():
     """
     Make methanol with a specific atom ordering.
     """
-    Molecule = pytest.importorskip("openff.toolkit.topology").Molecule
     methanol = Molecule.from_mapped_smiles("[H:3][C:1]([H:4])([H:5])[O:2][H:6]")
     methanol.generate_conformers(n_conformers=1)
     return methanol.to_rdkit()
@@ -25,7 +25,6 @@ def methanol_rdkit():
 @pytest.fixture()
 def water():
     """Make an OpenFF molecule of water"""
-    Molecule = pytest.importorskip("openff.toolkit.topology").Molecule
     water = Molecule.from_mapped_smiles("[H:2][O:1][H:3]")
     water.generate_conformers(n_conformers=1)
     return water.to_rdkit()
@@ -34,7 +33,6 @@ def water():
 @pytest.fixture()
 def iodobezene():
     """Make an OpenFF molecule of iodobenzene"""
-    Molecule = pytest.importorskip("openff.toolkit.topology").Molecule
     i_ben = Molecule.from_smiles("c1ccc(cc1)I")
     i_ben.generate_conformers(n_conformers=1)
     return i_ben.to_rdkit()
@@ -43,5 +41,4 @@ def iodobezene():
 @pytest.fixture()
 def methane_no_conf():
     """Make an OpenFF molecule of methane with no conformer"""
-    Molecule = pytest.importorskip("openff.toolkit.topology").Molecule
     return Molecule.from_smiles("C").to_rdkit()
