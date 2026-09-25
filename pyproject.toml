@@ -38,8 +38,8 @@ rdkit = "*"
 [tool.pixi.pypi-dependencies]
 naglmbis = { path = ".", editable = true }
 
-# The nagl fork and dgl, used for training the models.
-[tool.pixi.feature.nagl.dependencies]
+# The bismuthadams1/nagl fork and dgl, used for training the models.
+[tool.pixi.feature.train.dependencies]
 dgl = ">=1"
 pydantic = "*"
 pyarrow = "*"
@@ -49,7 +49,7 @@ pyyaml = "*"
 networkx = "*"
 typing_extensions = "*"
 
-[tool.pixi.feature.nagl.pypi-dependencies]
+[tool.pixi.feature.train.pypi-dependencies]
 nagl = { git = "https://github.com/bismuthadams1/nagl.git", rev = "df6e26123130ab6f02a390e392f9669ca0b2aed0" }
 
 [tool.pixi.feature.test.dependencies]
@@ -92,7 +92,7 @@ openff-toolkit = "*"
 pyarrow = "*"
 
 [tool.pixi.environments]
-default = { features = ["nagl", "dev", "test"], solve-group = "default" }
+default = { features = ["train", "dev", "test"], solve-group = "default" }
 inference = { features = [], solve-group = "inference" }
 test-inference = { features = ["test"], solve-group = "inference" }
 splitting = { features = ["splitting"], no-default-feature = true }

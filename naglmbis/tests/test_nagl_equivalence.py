@@ -1,6 +1,6 @@
 """
 Compare the openff-nagl based models directly against the original nagl + dgl
-implementation. These tests only run when the nagl fork and dgl are installed.
+implementation. These tests only run when the ``bismuthadams1/nagl`` fork and dgl are installed.
 """
 
 import warnings

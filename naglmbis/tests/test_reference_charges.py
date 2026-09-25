@@ -48,5 +48,5 @@ def test_reference_charges(checkpoint):
 
 
 def test_reference_file_covers_all_models():
-    """Make sure every shipped charge model has reference charges."""
+    """Make sure every charge model in ``charge_weights`` has reference charges."""
     assert {w["checkpoint_path"] for w in charge_weights.values()} <= set(CHECKPOINTS)

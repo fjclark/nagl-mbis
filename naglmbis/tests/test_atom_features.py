@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-# these features are registered with the nagl fork, which is only installed for training
+# these features are registered with the bismuthadams1/nagl fork, which is only installed for training
 pytest.importorskip("nagl")
 
 from naglmbis.features import (  # noqa: E402

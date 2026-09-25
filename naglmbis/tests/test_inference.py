@@ -1,5 +1,5 @@
 """
-Tests which only need the minimal ``inference`` environment (no nagl fork or dgl).
+Tests which only need the minimal ``inference`` environment (no ``bismuthadams1/nagl`` fork or dgl).
 """
 
 import pytest
@@ -13,7 +13,7 @@ from naglmbis.models.models import charge_weights
 
 @pytest.mark.parametrize("charge_model", list(charge_weights))
 def test_load_all_charge_models(charge_model, methanol_rdkit):
-    """Make sure every shipped charge model loads and gives sensible charges."""
+    """Make sure every charge model in ``charge_weights`` loads and gives sensible charges."""
     model = load_charge_model(charge_model=charge_model)
     charges = model.compute_properties(molecule=methanol_rdkit)["mbis-charges"].detach()
 

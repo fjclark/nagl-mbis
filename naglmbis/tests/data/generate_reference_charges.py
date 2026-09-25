@@ -6,7 +6,9 @@ of the models, and act as the ground truth for any other implementation. Molecul
 multiple fragments are evaluated one fragment at a time. Do not regenerate this file
 with a new implementation.
 
-Run from the repository root with ``pixi run python naglmbis/tests/data/generate_reference_charges.py``.
+Run from the repository root with ``pixi run python naglmbis/tests/data/generate_reference_charges.py
+| tee naglmbis/tests/data/generate_reference_charges.log``. The log of the run which
+generated the committed reference charges is kept for provenance.
 """
 
 import pathlib
@@ -100,8 +102,10 @@ def main():
             molecule = Chem.AddHs(Chem.MolFromSmiles(smiles))
             try:
                 charges = original_charges(model, molecule)
-            except Exception:
-                # e.g. elements or connectivities outside the model's one-hot vocabulary
+            except ValueError as error:
+                # elements or connectivities outside the model's one-hot vocabulary,
+                # any other error is unexpected so is not caught
+                print(f"{checkpoint.name}: failed for {smiles}: {error}")
                 failures.append(f"{checkpoint.name}|{i}")
                 continue
             arrays[f"{checkpoint.name}|{i}"] = charges.numpy().astype(np.float64)
@@ -118,6 +122,7 @@ def main():
         f"torch {torch.__version__}"
     )
     np.savez_compressed(OUTPUT, **arrays)
+    print(arrays["provenance"])
     print(f"wrote {len(arrays) - 3} reference charge sets, {len(failures)} failures")
 
 

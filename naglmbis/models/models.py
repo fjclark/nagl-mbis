@@ -5,7 +5,7 @@ import torch
 from openff.nagl import GNNModel
 
 from naglmbis.models.base_model import MBISChargeModel
-from naglmbis.utils import get_model_weights
+from naglmbis.utils import DEFAULT_RING_SIZES, get_model_weights
 
 charge_weights = {
     "nagl-v1-mbis": {"checkpoint_path": "nagl-v1-mbis.ckpt"},
@@ -34,29 +34,33 @@ CHARGE_MODELS = Literal["nagl-v1-mbis-dipole",
 
 
 def _convert_layers(hidden_feats, activation, dropout, **extra) -> list[dict]:
-    """Convert nagl fork layer settings to openff-nagl layer configs."""
+    """Convert ``bismuthadams1/nagl`` fork layer settings to openff-nagl layer configs."""
     dropout = [0.0] * len(hidden_feats) if dropout is None else dropout
     return [
         {
-            "hidden_feature_size": size,
+            "hidden_feature_size": hidden_feature_size,
             "activation_function": act,
             "dropout": drop,
             **extra,
         }
-        for size, act, drop in zip(hidden_feats, activation, dropout, strict=True)
+        for hidden_feature_size, act, drop in zip(hidden_feats, activation, dropout, strict=True)
     ]
 
 
 def _convert_atom_feature(feature: dict) -> list[dict]:
-    """Convert a nagl fork atom feature config to the equivalent openff-nagl features."""
-    feature = dict(feature)
-    feature_type = feature.pop("type")
+    """
+    Convert a ``bismuthadams1/nagl`` fork atom feature config to the equivalent
+    openff-nagl features.
+    """
+    feature_type = feature["type"]
+    options = feature.keys() - {"type"}
     one_hot_names = {"element": "atomic_element", "connectivity": "atom_connectivity"}
-    if feature_type in one_hot_names and set(feature) <= {"values"}:
+    if feature_type in one_hot_names and options <= {"values"}:
         return [{"name": one_hot_names[feature_type], "categories": feature["values"]}]
-    if feature_type == "ringofsize" and set(feature) <= {"ring_sizes"}:
-        # naglmbis.features.AtomInRingOfSize, one column per ring size
-        ring_sizes = feature.get("ring_sizes", [3, 4, 5, 6, 7, 8])
+    if feature_type == "ringofsize" and options <= {"ring_sizes"}:
+        # naglmbis.features.AtomInRingOfSize, one column per ring size. The
+        # checkpoints do not store the ring sizes, so they use the default.
+        ring_sizes = feature.get("ring_sizes", DEFAULT_RING_SIZES)
         return [{"name": "atom_in_ring_of_size", "ring_size": n} for n in ring_sizes]
     raise NotImplementedError(f"Unsupported atom feature: {feature_type} {feature}")
 
@@ -108,7 +112,7 @@ def _convert_config(config: dict) -> dict:
 
 
 def _convert_state_dict(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-    """Rename the nagl fork weights to the equivalent openff-nagl weights."""
+    """Rename the ``bismuthadams1/nagl`` fork weights to the equivalent openff-nagl weights."""
 
     def rename(key: str) -> str:
         key = re.sub(r"^convolution_module\.", "convolution_module.gcn_layers.", key)
